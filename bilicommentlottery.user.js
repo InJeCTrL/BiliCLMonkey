@@ -21,6 +21,8 @@
 (function() {
     'use strict';
 
+    const isDebug = 0;
+
     // 唤起BCL按钮
     const bclButton = document.createElement('button');
     bclButton.textContent = '评论区抽奖';
@@ -47,7 +49,7 @@
     overlay.style.height = '100%';
     overlay.style.backgroundColor = '#2f5e94';
     overlay.style.color = 'white';
-    overlay.style.zIndex = '999999';
+    overlay.style.zIndex = isDebug === 1 ? '0' : '999999';
     overlay.style.display = 'none';
     overlay.style.flexDirection = 'column';
     overlay.style.justifyContent = 'center';
@@ -186,10 +188,21 @@
             }, 200);
             let biliComments = document.getElementsByTagName('bili-comments');
             if (biliComments != null && biliComments.length >= 1) {
+                // 切换到最新评论列表
+                let header = biliComments[0].shadowRoot.querySelector('#header');
+                if (header != null) {
+                    header.querySelector('bili-comments-header-renderer').shadowRoot.querySelectorAll('bili-text-button').forEach(btn => {
+                        if (btn.innerText === '最新') btn.click();
+                    });
+                }
+
+                // 移除具体评论块
                 let contents = biliComments[0].shadowRoot.querySelector('#contents');
                 if (contents != null) {
                     contents.remove();
                 }
+
+                // 判断结束
                 let end = biliComments[0].shadowRoot.querySelector('#end');
                 if (end != null && end.innerText == '没有更多评论') {
                     clearInterval(roller);
