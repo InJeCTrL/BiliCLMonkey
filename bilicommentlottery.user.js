@@ -277,6 +277,7 @@
 
     function displayRepliesInTable(replies, totalReplies) {
         const table = document.createElement('table');
+        table.classList.add('all-replies-tbl');
         table.style.width = '100%';
         table.style.borderCollapse = 'collapse';
         table.style.marginTop = '20px';
@@ -354,7 +355,13 @@
             tbody.appendChild(row);
         });
         table.appendChild(tbody);
-        overlay.appendChild(table);
+
+        const existingAllRepliesTbl = overlay.querySelector('.all-replies-tbl');
+        if (existingAllRepliesTbl) {
+            existingAllRepliesTbl.replaceWith(table);
+        } else {
+            overlay.appendChild(table);
+        }
     }
 
     function showFilterForm() {
