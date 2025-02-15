@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.0
+// @version      1.0.0
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -412,7 +412,6 @@
 
     function filterRepliesByConditions(replies) {
         const formData = new FormData(form);
-        const winnersCount = parseInt(formData.get('winnersCount'), 10);
         const uniqueUsers = formData.get('uniqueUsers') !== null;
         const startTime = formData.get('startTime') ? new Date(formData.get('startTime')).getTime() / 1000 : 0;
         const endTime = formData.get('endTime') ? new Date(formData.get('endTime')).getTime() / 1000 : Infinity;
@@ -458,7 +457,7 @@
                 isFollowerCell.appendChild(reloadButton);
                 return;
             }
-            if (data.data.be_relation.attribute === 2) {
+            if (data.data.be_relation.attribute > 0) {
                 isFollowerCell.innerHTML = '<span style="font-size: 15px; background-color: green; color: white; padding: 2px 5px; border-radius: 3px;">粉丝</span>';
             } else {
                 isFollowerCell.innerHTML = '<span style="font-size: 15px; background-color: orange; color: white; padding: 2px 5px; border-radius: 3px;">非粉丝</span>';
