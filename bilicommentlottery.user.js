@@ -9,6 +9,8 @@
 // @match        https://m.bilibili.com/dynamic/*
 // @match        https://*.bilibili.com/video/*
 // @match        https://*.bilibili.com/read/*
+// @exclude      https://t.bilibili.com/
+// @exclude      https://t.bilibili.com/?*
 // @grant        none
 // @updateURL    https://github.com/InJeCTrL/BiliCLMonkey/releases/download/latest/bilicommentlottery.user.js
 // @downloadURL  https://github.com/InJeCTrL/BiliCLMonkey/releases/download/latest/bilicommentlottery.user.js
