@@ -1,0 +1,25 @@
+name: Script Release
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Publish Release
+      uses: meeDamian/github-release@2.0
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: latest
+        name: latest
+        body: >
+          BiliCommentLottery (Tampermonkey Ver.)
+        files: >
+          ./bilicommentlottery.user.js
+        allow_override: true
+        gzip: false
