@@ -23,7 +23,7 @@ BiliCLMonkey 是依托于 Tampermonkey 的油猴插件，用户可以在任意�
 
 1. 安装 Tampermonkey (**若已安装可跳过**)
    
-   BiliCLMonkey 是依赖于 Tampermonkey 的浏览器插件，请先在浏览器访问 https://www.tampermonkey.net，将 Tampermonkey 添加到当前浏览器。
+   BiliCLMonkey 是依赖于 Tampermonkey 的浏览器插件，请先在浏览器访问 https://www.tampermonkey.net ，将 Tampermonkey 添加到当前浏览器。
 
    ![install Tampermonkey](./docs/install-tampermonkey.png)
 
