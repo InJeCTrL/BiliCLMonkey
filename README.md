@@ -31,8 +31,6 @@ BiliCLMonkey 是依托于 Tampermonkey 的油猴插件，用户可以在任意�
    
    **[>>> 点击此处安装 BiliCLMonkey <<<](https://github.com/InJeCTrL/BiliCLMonkey/releases/download/latest/bilicommentlottery.user.js)**
 
-   目前支持视频稿件、专栏稿件、动态的ID
-
 ## 使用方法
 
 **请在登录B站后使用！！！**
