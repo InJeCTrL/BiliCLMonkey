@@ -82,6 +82,7 @@
     projectContainer.style.width = 'fit-content';
 
     const projectPage = document.createElement('a');
+    projectPage.style.color = 'white';
     projectPage.style.marginBottom = '20px';
     projectPage.href = 'https://github.com/InJeCTrL/BiliCLMonkey';
     projectPage.target = '_blank';
@@ -485,8 +486,11 @@
     }
 
     function getRandomWinners(filteredReplies, count) {
-        const shuffled = filteredReplies.sort(() => 0.5 - Math.random());
-        return shuffled.slice(0, count);
+        for (let i = filteredReplies.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [filteredReplies[i], filteredReplies[j]] = [filteredReplies[j], filteredReplies[i]];
+        }
+        return filteredReplies.slice(0, count);
     }
 
     function setIsFans(isFollowerCell, mid) {
