@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.0.2
+// @version      1.0.3
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -510,11 +510,16 @@
     }
 
     function getRandomWinners(filteredReplies, count) {
-        for (let i = filteredReplies.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [filteredReplies[i], filteredReplies[j]] = [filteredReplies[j], filteredReplies[i]];
+        const shuffledReplies = filteredReplies.slice();
+        const winnerReplies = [];
+
+        for (let i = 0; i < count; i++) {
+            const j = Math.floor(Math.random() * (shuffledReplies.length - i));
+            winnerReplies.push(shuffledReplies[j]);
+            [shuffledReplies[j], shuffledReplies[shuffledReplies.length - i - 1]] = [shuffledReplies[shuffledReplies.length - i - 1], shuffledReplies[j]];
         }
-        return filteredReplies.slice(0, count);
+
+        return winnerReplies;
     }
 
     function setIsFans(isFollowerCell, mid) {
