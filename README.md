@@ -1,4 +1,4 @@
-# BiliCLMonkey
+# [BiliCLMonkey](https://github.com/InJeCTrL/BiliCLMonkey)
 
 > Bilibili评论区第三方抽奖插件（Tampermonkey）
 
