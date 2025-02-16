@@ -567,7 +567,7 @@
 
         const formData = new FormData(form);
         const winnersCount = parseInt(formData.get('winnersCount'), 10);
-        if (isNaN(winnersCount) || winnersCount === 0) {
+        if (isNaN(winnersCount) || winnersCount <= 0) {
             alert('无效的中奖人数');
             return;
         }
