@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.0.1
+// @version      1.0.2
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -14,6 +14,7 @@
 // @grant        none
 // @updateURL    https://github.com/InJeCTrL/BiliCLMonkey/releases/download/latest/bilicommentlottery.user.js
 // @downloadURL  https://github.com/InJeCTrL/BiliCLMonkey/releases/download/latest/bilicommentlottery.user.js
+// @require      https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.js
 // @require      https://unpkg.com/xhook@latest/dist/xhook.min.js
 // @run-at       document-body
 // ==/UserScript==
@@ -22,6 +23,12 @@
     'use strict';
 
     const isDebug = 0;
+
+    // 加载flatpickr CSS
+    const flatpickrStylelLink = document.createElement('link');
+    flatpickrStylelLink.rel = 'stylesheet';
+    flatpickrStylelLink.href = 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css';
+    document.head.appendChild(flatpickrStylelLink);
 
     // 唤起BCL按钮
     const bclButton = document.createElement('button');
@@ -182,6 +189,23 @@
             checkbox.value = options.value;
             checkbox.checked = options.checked;
             container.appendChild(checkbox);
+        } else if (inputType === 'datetime-local') {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.name = name;
+            input.placeholder = '点击选择日期时间';
+            input.style.width = '60%';
+            if (options && options.defaultValue !== undefined) {
+                input.value = options.defaultValue;
+            }
+            container.appendChild(input);
+
+            const flatpickrInstance = flatpickr(input, {
+                enableTime: true,
+                dateFormat: "Y-m-d H:i",
+                time_24hr: true,
+            });
+            flatpickrInstance.calendarContainer.style.zIndex = '9999999';
         } else {
             const input = document.createElement('input');
             input.type = inputType;
@@ -470,8 +494,8 @@
     function filterRepliesByConditions(replies) {
         const formData = new FormData(form);
         const uniqueUsers = formData.get('uniqueUsers') !== null;
-        const startTime = formData.get('startTime') ? new Date(formData.get('startTime')).getTime() / 1000 : 0;
-        const endTime = formData.get('endTime') ? new Date(formData.get('endTime')).getTime() / 1000 : Infinity;
+        const startTime = form.querySelector('input[name="startTime"]').value ? new Date(form.querySelector('input[name="startTime"]').value).getTime() / 1000 : 0;
+        const endTime = form.querySelector('input[name="endTime"]').value ? new Date(form.querySelector('input[name="endTime"]').value).getTime() / 1000 : Infinity;
         const selectedLevels = formData.getAll('levels').map(level => parseInt(level, 10));
         const keyword = formData.get('keyword').trim().toLowerCase();
 
@@ -481,8 +505,8 @@
             const containsKeyword = keyword === '' || reply.message.toLowerCase().includes(keyword);
             return isWithinTimeRange && matchesLevel && containsKeyword;
         }).filter((reply, index, self) =>
-            !uniqueUsers || self.findIndex(t => t.mid === reply.mid) === index
-        );
+                  !uniqueUsers || self.findIndex(t => t.mid === reply.mid) === index
+                 );
     }
 
     function getRandomWinners(filteredReplies, count) {
