@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.0.3
+// @version      1.0.4
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -334,24 +334,75 @@
         return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     }
 
+    function generateCSVContent(replies) {
+        const headers = ['用户昵称', '用户UID', '用户等级', '评论内容', '发布时间'];
+        const rows = replies.map(reply => [
+            reply.uname,
+            reply.mid,
+            `LV${reply.current_level}`,
+            reply.message,
+            formatTime(reply.ctime),
+        ]);
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.map(item => `"${item.replace(/"/g, '""')}"`).join(',')),
+        ].join('\n');
+
+        return '\uFEFF' + csvContent;
+    }
+
     function displayRepliesInTable(replies, totalReplies) {
+        // 总条数和评论下载
+        const infoContainer = document.createElement('div');
+        infoContainer.classList.add('total-replies-info');
+        infoContainer.style.display = 'flex';
+        infoContainer.style.justifyContent = 'space-between';
+        infoContainer.style.alignItems = 'center';
+        infoContainer.style.marginTop= '20px';
+        infoContainer.style.width = '100%';
+
+        const existingTotalRepliesInfo = overlay.querySelector('.total-replies-info');
+        if (existingTotalRepliesInfo) {
+            existingTotalRepliesInfo.replaceWith(infoContainer);
+        } else {
+            overlay.appendChild(infoContainer);
+        }
+
+        // 评论表格
         const table = document.createElement('table');
         table.classList.add('all-replies-tbl');
         table.style.width = '100%';
         table.style.borderCollapse = 'collapse';
-        table.style.marginTop = '20px';
+        table.style.marginTop = '10px';
 
-        // 表格顶部显示总评论数
-        const totalRow = document.createElement('tr');
-        const totalCell = document.createElement('td');
-        totalCell.colSpan = 4;
-        totalCell.style.textAlign = 'center';
-        totalCell.style.fontWeight = 'bold';
-        totalCell.textContent = `共获取到 ${totalReplies} 条评论`;
-        totalCell.style.border = '1px solid white';
-        totalRow.appendChild(totalCell);
-        table.appendChild(totalRow);
+        const existingTotalRepliesTbl = overlay.querySelector('.all-replies-tbl');
+        if (existingTotalRepliesTbl) {
+            existingTotalRepliesTbl.replaceWith(table);
+        } else {
+            overlay.appendChild(table);
+        }
 
+        // 显示总条数
+        const totalRepliesText = document.createElement('div');
+        totalRepliesText.textContent = `共获取到 ${totalReplies} 条评论`;
+        totalRepliesText.style.fontWeight = 'bold';
+        totalRepliesText.style.fontSize = '17px';
+        infoContainer.appendChild(totalRepliesText);
+
+        // 下载所有评论数据
+        const downloadButton = document.createElement('button');
+        downloadButton.textContent = '下载所有评论数据';
+        downloadButton.style.backgroundColor = '#4CAF50';
+        downloadButton.style.color = 'white';
+        downloadButton.style.border = 'none';
+        downloadButton.style.padding = '5px 10px';
+        downloadButton.style.borderRadius = '3px';
+        downloadButton.style.cursor = 'pointer';
+        downloadButton.onclick = () => downloadTableData(replies);
+        infoContainer.appendChild(downloadButton);
+
+        // 创建表头
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
         ['用户昵称 [UID]', '用户等级', '评论内容', '发布时间'].forEach(headerText => {
@@ -366,6 +417,7 @@
         thead.appendChild(headerRow);
         table.appendChild(thead);
 
+        // 创建表格内容
         const tbody = document.createElement('tbody');
         replies.forEach(reply => {
             const row = document.createElement('tr');
@@ -392,7 +444,7 @@
             const messageCell = document.createElement('td');
             const messageLink = document.createElement('a');
             let currentLink = window.location.href;
-            var replyIndex = currentLink.indexOf('#reply');
+            const replyIndex = currentLink.indexOf('#reply');
             if (replyIndex !== -1) {
                 currentLink = currentLink.substring(0, replyIndex);
             }
@@ -414,13 +466,49 @@
             tbody.appendChild(row);
         });
         table.appendChild(tbody);
+    }
 
-        const existingAllRepliesTbl = overlay.querySelector('.all-replies-tbl');
-        if (existingAllRepliesTbl) {
-            existingAllRepliesTbl.replaceWith(table);
+    function downloadTableData(replies) {
+        if (window.Worker) {
+            // 支持Web Worker
+            const workerCode = `
+                self.onmessage = function(e) {
+                    const replies = e.data;
+                    const csvContent = (${generateCSVContent.toString()})(replies);
+                    self.postMessage(csvContent);
+                };
+
+                ${formatTime.toString()}
+            `;
+            const blob = new Blob([workerCode], { type: 'application/javascript' });
+            const workerUrl = URL.createObjectURL(blob);
+
+            const worker = new Worker(workerUrl);
+
+            worker.postMessage(replies);
+
+            worker.onmessage = function(e) {
+                finalizeDownload(e.data);
+            };
         } else {
-            overlay.appendChild(table);
+            // 不支持Web Worker
+            const csvContent = generateCsvContent(replies);
+            finalizeDownload(csvContent);
         }
+    }
+
+    function finalizeDownload(csvContent) {
+        const urlSlices = window.location.href.split('?')[0].split('#')[0].replaceAll('/', ' ').trim().split(' ');
+        const downloadFilename = `${urlSlices[urlSlices.length - 1]}-${parseInt(new Date().getTime() / 1000, 10)}.csv`;
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = downloadFilename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
     }
 
     function showFilterForm() {
