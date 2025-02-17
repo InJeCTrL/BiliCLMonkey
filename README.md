@@ -48,6 +48,10 @@ BiliCLMonkey 是依托于 Tampermonkey 的油猴插件，用户可以在任意�
 
    ![panel-done](./docs/panel-done.png)
 
+   如果有需要，可以点击“下载所有评论数据”以CSV格式保存当前获取的所有评论：
+
+   ![download-replies](./docs/download-replies.png)
+
 3. 填写抽奖条件后点击 **“开始抽奖”**
    
    抽取完成后，下方会显示 **“揭晓所有中奖者”** 按钮和中奖者列表：
