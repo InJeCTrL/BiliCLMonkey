@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.0.4
+// @version      1.0.5
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -54,7 +54,7 @@
     overlay.style.left = '0';
     overlay.style.width = '100%';
     overlay.style.height = '100%';
-    overlay.style.backgroundColor = '#2f5e94';
+    overlay.style.backgroundColor = '#3690F4';
     overlay.style.color = 'white';
     overlay.style.zIndex = isDebug === 1 ? '0' : '999999';
     overlay.style.display = 'none';
@@ -125,8 +125,8 @@
 
     // 获取评论进度条
     const progressBar = document.createElement('div');
-    progressBar.style.width = '100%';
-    progressBar.style.backgroundColor = '#4CAF50';
+    progressBar.style.width = '0%';
+    progressBar.style.backgroundColor = '#66B14A';
     progressBar.style.height = '30px';
     progressBar.style.textAlign = 'center';
     progressBar.style.lineHeight = '30px';
@@ -147,7 +147,7 @@
     const revealAllButton = document.createElement('button');
     revealAllButton.textContent = '揭晓所有中奖者';
     revealAllButton.style.borderRadius = '3px';
-    revealAllButton.style.backgroundColor = '#4CAF50';
+    revealAllButton.style.backgroundColor = '#66B14A';
     revealAllButton.style.fontSize = '16px';
     revealAllButton.style.color = 'white';
     revealAllButton.style.width = '100%';
@@ -275,15 +275,19 @@
     });
 
     let allReplies = [];
+    let realEnd = false;
+    let totalReplies = 1;
     const addReplyIdSet = new Set();
 
     xhook.after(function(request, response) {
+        if (realEnd) return;
         if (request.url.includes('api.bilibili.com') && request.url.includes('/reply/')) {
             let resData = response.clone().json();
             resData.then(res => {
                 if (res == null || res.data == null || res.data.cursor == null) return;
+                if (res.data.cursor.prev === 0) return; // 跳过prev==0(非最新tab)
                 let replies = [...res.data.replies, ...res.data.top_replies];
-                let totalReplies = res.data.cursor.all_count;
+                totalReplies = Math.max(totalReplies, res.data.cursor.prev);
 
                 replies.forEach(reply => {
                     const rpid = reply.rpid;
@@ -307,6 +311,7 @@
                 progressBar.style.width = `${percentComplete}%`;
 
                 if (res.data.cursor.is_end) {
+                    realEnd = true;
                     percentComplete = 100;
                     allReplies.sort((x, y) => {
                         return x.ctime - y.ctime;
@@ -393,7 +398,7 @@
         // 下载所有评论数据
         const downloadButton = document.createElement('button');
         downloadButton.textContent = '下载所有评论数据';
-        downloadButton.style.backgroundColor = '#4CAF50';
+        downloadButton.style.backgroundColor = '#66B14A';
         downloadButton.style.color = 'white';
         downloadButton.style.border = 'none';
         downloadButton.style.padding = '5px 10px';
