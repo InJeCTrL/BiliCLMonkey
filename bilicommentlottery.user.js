@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.0.5
+// @version      1.0.6
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -44,7 +44,7 @@
     bclButton.style.border = 'none';
     bclButton.style.borderRadius = '5px';
     bclButton.style.cursor = 'pointer';
-    bclButton.style.zIndex = '1000000';
+    bclButton.style.zIndex = '10000';
     document.body.appendChild(bclButton);
 
     // 抽奖遮罩
