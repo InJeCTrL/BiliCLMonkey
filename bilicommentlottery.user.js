@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.0.6
+// @version      1.0.7
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -240,34 +240,38 @@
         // 隐藏滚动条
         document.body.style.overflow = 'hidden';
 
-        let roller = setInterval(function(){
-            window.scroll(0, 0);
-            setTimeout(function(){
-                window.scroll(0, document.body.scrollHeight);
-            }, 200);
-            let biliComments = document.getElementsByTagName('bili-comments');
-            if (biliComments != null && biliComments.length >= 1) {
-                // 切换到最新评论列表
-                let header = biliComments[0].shadowRoot.querySelector('#header');
-                if (header != null) {
-                    header.querySelector('bili-comments-header-renderer').shadowRoot.querySelectorAll('bili-text-button').forEach(btn => {
-                        if (btn.innerText === '最新') btn.click();
-                    });
-                }
+        window.scroll(0, document.body.scrollHeight);
 
-                // 移除具体评论块
-                let contents = biliComments[0].shadowRoot.querySelector('#contents');
-                if (contents != null) {
-                    contents.remove();
-                }
+        setTimeout(function(){
+            let roller = setInterval(function(){
+                window.scroll(0, 0);
+                setTimeout(function(){
+                    window.scroll(0, document.body.scrollHeight);
+                }, 200);
+                let biliComments = document.getElementsByTagName('bili-comments');
+                if (biliComments != null && biliComments.length >= 1) {
+                    // 切换到最新评论列表
+                    let header = biliComments[0].shadowRoot.querySelector('#header');
+                    if (header != null) {
+                        header.querySelector('bili-comments-header-renderer').shadowRoot.querySelectorAll('bili-text-button').forEach(btn => {
+                            if (btn.innerText === '最新') btn.click();
+                        });
+                    }
 
-                // 判断结束
-                let end = biliComments[0].shadowRoot.querySelector('#end');
-                if (end != null && end.innerText == '没有更多评论') {
-                    clearInterval(roller);
+                    // 移除具体评论块
+                    let contents = biliComments[0].shadowRoot.querySelector('#contents');
+                    if (contents != null) {
+                        contents.remove();
+                    }
+
+                    // 判断结束
+                    let end = biliComments[0].shadowRoot.querySelector('#end');
+                    if (end != null && end.innerText == '没有更多评论') {
+                        clearInterval(roller);
+                    }
                 }
-            }
-        }, 300);
+            }, 300);
+        }, 200);
     }
 
     bclButton.addEventListener('click', function() {
@@ -285,7 +289,6 @@
             let resData = response.clone().json();
             resData.then(res => {
                 if (res == null || res.data == null || res.data.cursor == null) return;
-                if (res.data.cursor.prev === 0) return; // 跳过prev==0(非最新tab)
                 let replies = [...res.data.replies, ...res.data.top_replies];
                 totalReplies = Math.max(totalReplies, res.data.cursor.prev);
 
