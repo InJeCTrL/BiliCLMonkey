@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.0.8
+// @version      1.0.9
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -228,6 +228,39 @@
         return container;
     }
 
+    function rollAndFetchComments() {
+        window.scroll(0, 0);
+        // 0.5s 后滚动到底
+        setTimeout(function(){
+            window.scroll(0, document.body.scrollHeight);
+        }, 500);
+        let biliComments = document.getElementsByTagName('bili-comments');
+        if (biliComments != null && biliComments.length >= 1) {
+            // 切换到最新评论列表
+            let header = biliComments[0].shadowRoot.querySelector('#header');
+            if (header != null) {
+                header.querySelector('bili-comments-header-renderer').shadowRoot.querySelectorAll('bili-text-button').forEach(btn => {
+                    if (btn.innerText === '最新') btn.click();
+                });
+            }
+
+            // 移除具体评论块
+            let contents = biliComments[0].shadowRoot.querySelector('#contents');
+            if (contents != null) {
+                contents.remove();
+            }
+
+            // 判断结束
+            let end = biliComments[0].shadowRoot.querySelector('#end');
+            if (end != null && end.innerText == '没有更多评论') {
+                return;
+            }
+        }
+
+        // 2s - 8s 后再次执行
+        setTimeout(rollAndFetchComments, Math.random() * 6000 + 2000);
+    }
+
     function openLotteryPanel() {
         overlay.style.display = 'block';
         bclButton.style.display = 'none';
@@ -242,36 +275,7 @@
 
         window.scroll(0, document.body.scrollHeight);
 
-        setTimeout(function(){
-            let roller = setInterval(function(){
-                window.scroll(0, 0);
-                setTimeout(function(){
-                    window.scroll(0, document.body.scrollHeight);
-                }, 500);
-                let biliComments = document.getElementsByTagName('bili-comments');
-                if (biliComments != null && biliComments.length >= 1) {
-                    // 切换到最新评论列表
-                    let header = biliComments[0].shadowRoot.querySelector('#header');
-                    if (header != null) {
-                        header.querySelector('bili-comments-header-renderer').shadowRoot.querySelectorAll('bili-text-button').forEach(btn => {
-                            if (btn.innerText === '最新') btn.click();
-                        });
-                    }
-
-                    // 移除具体评论块
-                    let contents = biliComments[0].shadowRoot.querySelector('#contents');
-                    if (contents != null) {
-                        contents.remove();
-                    }
-
-                    // 判断结束
-                    let end = biliComments[0].shadowRoot.querySelector('#end');
-                    if (end != null && end.innerText == '没有更多评论') {
-                        clearInterval(roller);
-                    }
-                }
-            }, 800);
-        }, 500);
+        setTimeout(rollAndFetchComments, 500);
     }
 
     bclButton.addEventListener('click', function() {
@@ -312,7 +316,6 @@
                 if (percentComplete >= 100 || res.data.cursor.is_end) percentComplete = 100;
                 progressBar.textContent = `${percentComplete}%`;
                 progressBar.style.width = `${percentComplete}%`;
-                if (percentComplete == 100) progressBar.style.backgroundColor = '#66B14A';
 
                 if (res.data.cursor.is_end) {
                     realEnd = true;
@@ -324,10 +327,13 @@
                     loadingText.style.display = 'none';
                     showFilterForm();
                 }
+
+                loadingText.textContent = '正在获取评论...';
+                progressBar.style.backgroundColor = '#66B14A';
             }).catch((error) => {
                 console.error('Error processing response:', error);
                 loadingText.textContent = '部分评论获取失败，仍在尝试加载';
-                progressBar.style.backgroundColor = 'red';
+                progressBar.style.backgroundColor = '#F78F33';
             });
         }
     });
