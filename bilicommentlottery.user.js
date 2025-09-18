@@ -228,6 +228,11 @@
         return container;
     }
 
+    // 检测到评论获取失败之后设置的冻结时间
+    let freezeTime = 45000;
+    // 获取评论的额外间隔时间
+    let paddingTime = 0;
+
     function rollAndFetchComments() {
         window.scroll(0, 0);
         // 0.5s 后滚动到底
@@ -258,7 +263,7 @@
         }
 
         // 2s - 8s 后再次执行
-        setTimeout(rollAndFetchComments, Math.random() * 6000 + 2000);
+        setTimeout(rollAndFetchComments, paddingTime + Math.random() * 6000 + 2000);
     }
 
     function openLotteryPanel() {
@@ -330,10 +335,12 @@
 
                 loadingText.textContent = '正在获取评论...';
                 progressBar.style.backgroundColor = '#66B14A';
+                paddingTime = 0;
             }).catch((error) => {
                 console.error('Error processing response:', error);
-                loadingText.textContent = '部分评论获取失败，仍在尝试加载';
+                loadingText.textContent = '部分评论获取失败，仍在尝试加载（慢速）';
                 progressBar.style.backgroundColor = '#F78F33';
+                paddingTime = freezeTime;
             });
         }
     });
