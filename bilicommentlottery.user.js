@@ -262,8 +262,8 @@
             }
         }
 
-        // 2s - 8s 后再次执行
-        setTimeout(rollAndFetchComments, paddingTime + Math.random() * 6000 + 2000);
+        // 2s - 10s 后再次执行
+        setTimeout(rollAndFetchComments, paddingTime + Math.random() * 8000 + 2000);
     }
 
     function openLotteryPanel() {
