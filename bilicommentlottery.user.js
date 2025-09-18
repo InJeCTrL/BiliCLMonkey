@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.0.7
+// @version      1.0.8
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -247,7 +247,7 @@
                 window.scroll(0, 0);
                 setTimeout(function(){
                     window.scroll(0, document.body.scrollHeight);
-                }, 200);
+                }, 500);
                 let biliComments = document.getElementsByTagName('bili-comments');
                 if (biliComments != null && biliComments.length >= 1) {
                     // 切换到最新评论列表
@@ -270,8 +270,8 @@
                         clearInterval(roller);
                     }
                 }
-            }, 300);
-        }, 200);
+            }, 800);
+        }, 500);
     }
 
     bclButton.addEventListener('click', function() {
@@ -312,6 +312,7 @@
                 if (percentComplete >= 100 || res.data.cursor.is_end) percentComplete = 100;
                 progressBar.textContent = `${percentComplete}%`;
                 progressBar.style.width = `${percentComplete}%`;
+                if (percentComplete == 100) progressBar.style.backgroundColor = '#66B14A';
 
                 if (res.data.cursor.is_end) {
                     realEnd = true;
@@ -325,7 +326,7 @@
                 }
             }).catch((error) => {
                 console.error('Error processing response:', error);
-                loadingText.textContent = '获取评论失败，请检查日志';
+                loadingText.textContent = '部分评论获取失败，仍在尝试加载';
                 progressBar.style.backgroundColor = 'red';
             });
         }
