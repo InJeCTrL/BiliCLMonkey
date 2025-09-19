@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.0.10
+// @version      1.0.11
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -269,7 +269,25 @@
         setTimeout(rollAndFetchComments, paddingTime + Math.random() * (freqRightBound - freqLeftBound) + freqLeftBound);
     }
 
+    // UP主昵称
+    let upNickName = '';
+
+    function setUpNickName() {
+        const upNameElement = document.getElementsByClassName('up-name')[0];
+        if (upNameElement) {
+            upNickName = upNameElement.innerText;
+        } else {
+            const authorElement = document.getElementsByClassName('opus-module-author__name')[0];
+            if (authorElement) {
+                upNickName = authorElement.innerText;
+            }
+        }
+    }
+
     function openLotteryPanel() {
+        // 获取UP主昵称
+        setUpNickName();
+
         overlay.style.display = 'block';
         bclButton.style.display = 'none';
 
@@ -773,8 +791,9 @@
 
             row.appendChild(isFollowerCell);
 
-            // 发私信
-            const sendMessageCell = document.createElement('td');
+            // Tool - 发私信
+            const toolCell = document.createElement('td');
+            toolCell.style.textAlign = 'center';
             const sendMessageButton = document.createElement('button');
             sendMessageButton.textContent = '发私信';
             sendMessageButton.style.backgroundColor = '#ea7a99';
@@ -784,8 +803,22 @@
             sendMessageButton.style.borderRadius = '3px';
             sendMessageButton.style.cursor = 'pointer';
             sendMessageButton.onclick = () => window.open(`https://message.bilibili.com#/whisper/mid${reply.mid}`);
-            sendMessageCell.appendChild(sendMessageButton);
-            row.appendChild(sendMessageCell);
+            toolCell.appendChild(sendMessageButton);
+            row.appendChild(toolCell);
+
+            // Tool - 查空间
+            const checkSpaceButton = document.createElement('button');
+            checkSpaceButton.textContent = '查空间';
+            checkSpaceButton.style.backgroundColor = '#4363f5';
+            checkSpaceButton.style.color = 'white';
+            checkSpaceButton.style.border = 'none';
+            checkSpaceButton.style.padding = '5px 10px';
+            checkSpaceButton.style.borderRadius = '3px';
+            checkSpaceButton.style.marginLeft = '10px';
+            checkSpaceButton.style.cursor = 'pointer';
+            checkSpaceButton.onclick = () => window.open(`https://space.bilibili.com/${reply.mid}/search?keyword=${upNickName}`);
+            toolCell.appendChild(checkSpaceButton);
+            row.appendChild(toolCell);
 
             const overlayDiv = document.createElement('div');
             overlayDiv.classList.add('info-mask');
