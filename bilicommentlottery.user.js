@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.0.9
+// @version      1.0.10
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -232,6 +232,9 @@
     let freezeTime = 45000;
     // 获取评论的额外间隔时间
     let paddingTime = 0;
+    // 获取评论的时间间隔左右边界
+    let freqLeftBound = 2000;
+    let freqRightBound = 3000;
 
     function rollAndFetchComments() {
         window.scroll(0, 0);
@@ -262,8 +265,8 @@
             }
         }
 
-        // 2s - 10s 后再次执行
-        setTimeout(rollAndFetchComments, paddingTime + Math.random() * 8000 + 2000);
+        // {freqLeftBound}s - {freqRightBound}s 后再次执行
+        setTimeout(rollAndFetchComments, paddingTime + Math.random() * (freqRightBound - freqLeftBound) + freqLeftBound);
     }
 
     function openLotteryPanel() {
@@ -333,14 +336,15 @@
                     showFilterForm();
                 }
 
-                loadingText.textContent = '正在获取评论...';
-                progressBar.style.backgroundColor = '#66B14A';
                 paddingTime = 0;
+                loadingText.textContent = `正在获取评论...（间隔：${(paddingTime+freqLeftBound)/1000}s - ${(paddingTime+freqRightBound)/1000}s）`;
+                progressBar.style.backgroundColor = '#66B14A';
             }).catch((error) => {
                 console.error('Error processing response:', error);
-                loadingText.textContent = '部分评论获取失败，仍在尝试加载（慢速）';
+                loadingText.textContent = `部分评论获取失败，仍在尝试加载（间隔：${(paddingTime+freqLeftBound)/1000}s - ${(paddingTime+freqRightBound)/1000}s）`;
                 progressBar.style.backgroundColor = '#F78F33';
                 paddingTime = freezeTime;
+                freqRightBound += 2000;
             });
         }
     });
