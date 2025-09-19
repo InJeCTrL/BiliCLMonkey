@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.0.11
+// @version      1.1.0
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -210,7 +210,7 @@
             const input = document.createElement('input');
             input.type = inputType;
             input.name = name;
-            if (name === 'keyword') {
+            if (name === 'keyword' || name === 'excludeKeyword') {
                 input.style.width = '80%';
             }
             if (inputType === 'number') {
@@ -221,6 +221,9 @@
             }
             if (options && options.defaultValue !== undefined) {
                 input.value = options.defaultValue;
+            }
+            if (options && options.placeholder !== undefined) {
+                input.placeholder = options.placeholder;
             }
             container.appendChild(input);
         }
@@ -235,6 +238,8 @@
     // 获取评论的时间间隔左右边界
     let freqLeftBound = 2000;
     let freqRightBound = 3000;
+    // 上一次滚动定时器
+    let lastRollTimeout = -1;
 
     function rollAndFetchComments() {
         window.scroll(0, 0);
@@ -266,7 +271,7 @@
         }
 
         // {freqLeftBound}s - {freqRightBound}s 后再次执行
-        setTimeout(rollAndFetchComments, paddingTime + Math.random() * (freqRightBound - freqLeftBound) + freqLeftBound);
+        lastRollTimeout = setTimeout(rollAndFetchComments, paddingTime + Math.random() * (freqRightBound - freqLeftBound) + freqLeftBound);
     }
 
     // UP主昵称
@@ -313,6 +318,9 @@
     let totalReplies = 1;
     const addReplyIdSet = new Set();
 
+    // 是否处于风控速率受限模式
+    let inRateLimitMode = 0;
+
     xhook.after(function(request, response) {
         if (realEnd) return;
         if (request.url.includes('api.bilibili.com') && request.url.includes('/reply/')) {
@@ -326,6 +334,13 @@
                     const rpid = reply.rpid;
                     if (!addReplyIdSet.has(rpid)) {
                         addReplyIdSet.add(rpid);
+
+                        // 提取表情标识符
+                        let emoteKeys = [];
+                        if (reply.content && reply.content.emote) {
+                            emoteKeys = Object.keys(reply.content.emote);
+                        }
+
                         allReplies.push({
                             mid: reply.member.mid,
                             uname: reply.member.uname,
@@ -333,7 +348,8 @@
                             avatar: reply.member.avatar,
                             rpid: rpid,
                             message: reply.content.message,
-                            ctime: reply.ctime
+                            ctime: reply.ctime,
+                            emoteKeys: emoteKeys,
                         });
                     }
                 });
@@ -357,12 +373,22 @@
                 paddingTime = 0;
                 loadingText.textContent = `正在获取评论...（间隔：${(paddingTime+freqLeftBound)/1000}s - ${(paddingTime+freqRightBound)/1000}s）`;
                 progressBar.style.backgroundColor = '#66B14A';
+                if (inRateLimitMode === 1) {
+                    inRateLimitMode = 0;
+                    clearTimeout(lastRollTimeout);
+                    lastRollTimeout = setTimeout(rollAndFetchComments, paddingTime + Math.random() * (freqRightBound - freqLeftBound) + freqLeftBound);
+                }
             }).catch((error) => {
                 console.error('Error processing response:', error);
+                paddingTime = freezeTime;
+                if (inRateLimitMode === 0) {
+                    inRateLimitMode = 1;
+                    freqRightBound += 1000;
+                    clearTimeout(lastRollTimeout);
+                    lastRollTimeout = setTimeout(rollAndFetchComments, paddingTime + Math.random() * (freqRightBound - freqLeftBound) + freqLeftBound);
+                }
                 loadingText.textContent = `部分评论获取失败，仍在尝试加载（间隔：${(paddingTime+freqLeftBound)/1000}s - ${(paddingTime+freqRightBound)/1000}s）`;
                 progressBar.style.backgroundColor = '#F78F33';
-                paddingTime = freezeTime;
-                freqRightBound += 2000;
             });
         }
     });
@@ -603,9 +629,56 @@
         });
         form.appendChild(levelsContainer);
 
-        // 关键字
-        const keywordContainer = createFormField('评论关键字', 'text', 'keyword', '80%');
+        // 评论文本字数
+        const minTextLengthContainer = createFormField('评论文本字数大等于', 'number', 'minTextLength', {defaultValue: 0}, '50%');
+        const minTextLengthHint = document.createElement('div');
+        minTextLengthHint.textContent = '只计算文本字数，不计算表情和标点符号';
+        minTextLengthHint.style.fontSize = '12px';
+        minTextLengthHint.style.color = '#666';
+        minTextLengthHint.style.marginTop = '-5px';
+        minTextLengthHint.style.marginBottom = '10px';
+        form.appendChild(minTextLengthContainer);
+        form.appendChild(minTextLengthHint);
+
+        // 评论去重策略
+        const dedupeContainer = document.createElement('div');
+        dedupeContainer.style.marginBottom = '10px';
+        const dedupeLabel = document.createElement('label');
+        dedupeLabel.textContent = '评论去重策略';
+        dedupeLabel.style.marginRight = '10px';
+        dedupeContainer.appendChild(dedupeLabel);
+
+        const dedupeOptions = [
+            { value: 'none', text: '无' },
+            { value: 'first', text: '按评论内容去重，只保留首个' },
+            { value: 'exclude', text: '排除所有重复评论' }
+        ];
+
+        dedupeOptions.forEach(option => {
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.name = 'dedupeStrategy';
+            radio.value = option.value;
+            radio.id = `dedupe-${option.value}`;
+            if (option.value === 'none') radio.checked = true;
+
+            const label = document.createElement('label');
+            label.htmlFor = `dedupe-${option.value}`;
+            label.textContent = option.text;
+            label.style.marginRight = '10px';
+
+            dedupeContainer.appendChild(radio);
+            dedupeContainer.appendChild(label);
+        });
+        form.appendChild(dedupeContainer);
+
+        // 评论包含关键字
+        const keywordContainer = createFormField('评论包含关键字', 'text', 'keyword', {placeholder: '只有包含指定关键字的评论会参与抽奖，多个用空格分割'}, '100%');
         form.appendChild(keywordContainer);
+
+        // 评论禁止关键字
+        const excludeKeywordContainer = createFormField('评论禁止关键字', 'text', 'excludeKeyword', {placeholder: '包含指定关键字的评论不会参与抽奖，多个用空格分割'}, '100%');
+        form.appendChild(excludeKeywordContainer);
 
         // 执行抽奖
         const submitButton = document.createElement('button');
@@ -623,22 +696,101 @@
         form.appendChild(submitButton);
     }
 
+    // 计算评论文本字数（不包含表情和标点符号）
+    function calculateTextLength(message, emoteKeys) {
+        // 移除自定义表情
+        let cleanMessage = message;
+        emoteKeys.forEach(key => {
+            cleanMessage = cleanMessage.replaceAll(key, '');
+        });
+
+        // 移除emoji和标点符号
+        // 匹配emoji的正则表达式
+        const emojiRegex = /\p{Emoji_Presentation}/gu;
+        // 匹配标点符号的正则表达式
+        const punctuationRegex = /[!"#$%&'()*+,-./:;<=>?@[\\\]^_`{|}~。，、；：？！""''（）【】《》｛｝〈〉「」『』〔〕…—–﹏～]/g;
+
+        cleanMessage = cleanMessage
+            .replaceAll(emojiRegex, '')
+            .replaceAll(punctuationRegex, '')
+            .replaceAll(/\s+/g, '');
+
+        return cleanMessage.length;
+    }
+
     function filterRepliesByConditions(replies) {
         const formData = new FormData(form);
         const uniqueUsers = formData.get('uniqueUsers') !== null;
+        const dedupeStrategy = formData.get('dedupeStrategy') || 'none';
         const startTime = form.querySelector('input[name="startTime"]').value ? new Date(form.querySelector('input[name="startTime"]').value).getTime() / 1000 : 0;
         const endTime = form.querySelector('input[name="endTime"]').value ? new Date(form.querySelector('input[name="endTime"]').value).getTime() / 1000 : Infinity;
         const selectedLevels = formData.getAll('levels').map(level => parseInt(level, 10));
         const keyword = formData.get('keyword').trim().toLowerCase();
+        const excludeKeyword = formData.get('excludeKeyword').trim().toLowerCase();
+        const minTextLength = parseInt(formData.get('minTextLength') || 0, 10);
 
-        return replies.filter(reply => {
+        // 第一步：基本筛选
+        let filteredReplies = replies.filter(reply => {
             const isWithinTimeRange = reply.ctime >= startTime && reply.ctime <= endTime;
             const matchesLevel = selectedLevels.includes(reply.current_level);
-            const containsKeyword = keyword === '' || reply.message.toLowerCase().includes(keyword);
-            return isWithinTimeRange && matchesLevel && containsKeyword;
-        }).filter((reply, index, self) =>
-                  !uniqueUsers || self.findIndex(t => t.mid === reply.mid) === index
-                 );
+
+            // 检查包含关键字
+            let containsKeyword = true;
+            if (keyword) {
+                const keywords = keyword.split(' ').filter(k => k.length > 0);
+                containsKeyword = keywords.some(k => reply.message.toLowerCase().includes(k));
+            }
+
+            // 检查排除关键字
+            let excludesKeyword = true;
+            if (excludeKeyword) {
+                const excludeKeywords = excludeKeyword.split(' ').filter(k => k.length > 0);
+                excludesKeyword = !excludeKeywords.some(k => reply.message.toLowerCase().includes(k));
+            }
+
+            // 检查文本长度
+            const textLength = calculateTextLength(reply.message, reply.emoteKeys);
+            const meetsMinLength = textLength >= minTextLength;
+
+            return isWithinTimeRange && matchesLevel && containsKeyword && excludesKeyword && meetsMinLength;
+        });
+
+        // 第二步：按用户去重
+        if (uniqueUsers) {
+            filteredReplies = filteredReplies.filter((reply, index, self) =>
+                self.findIndex(t => t.mid === reply.mid) === index
+            );
+        }
+
+        // 第三步：评论内容去重策略
+        if (dedupeStrategy !== 'none') {
+            const messageCountMap = new Map();
+
+            // 计算每条评论出现的次数
+            filteredReplies.forEach(reply => {
+                const count = messageCountMap.get(reply.message) || 0;
+                messageCountMap.set(reply.message, count + 1);
+            });
+
+            if (dedupeStrategy === 'first') {
+                // 只保留第一条重复评论
+                const seenMessages = new Set();
+                filteredReplies = filteredReplies.filter(reply => {
+                    if (seenMessages.has(reply.message)) {
+                        return false;
+                    }
+                    seenMessages.add(reply.message);
+                    return true;
+                });
+            } else if (dedupeStrategy === 'exclude') {
+                // 排除所有重复评论
+                filteredReplies = filteredReplies.filter(reply =>
+                    messageCountMap.get(reply.message) === 1
+                );
+            }
+        }
+
+        return filteredReplies;
     }
 
     function getRandomWinners(filteredReplies, count) {
