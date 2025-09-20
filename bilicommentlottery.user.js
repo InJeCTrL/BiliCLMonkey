@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.1.0
+// @version      1.1.1
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -315,7 +315,8 @@
 
     let allReplies = [];
     let realEnd = false;
-    let totalReplies = 1;
+    let initTotalReplies = 1;
+    let totalReplies = initTotalReplies;
     const addReplyIdSet = new Set();
 
     // 是否处于风控速率受限模式
@@ -356,6 +357,7 @@
 
                 let percentComplete = (allReplies.length / totalReplies * 100).toFixed(2);
                 if (percentComplete >= 100 || res.data.cursor.is_end) percentComplete = 100;
+                if (totalReplies === initTotalReplies && !res.data.cursor.is_end) percentComplete = 0;
                 progressBar.textContent = `${percentComplete}%`;
                 progressBar.style.width = `${percentComplete}%`;
 
