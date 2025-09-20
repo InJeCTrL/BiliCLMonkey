@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.1.2
+// @version      1.1.3
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -128,7 +128,7 @@
     // 安装最新版
     const reinstallButton = document.createElement('button');
     reinstallButton.onclick = () => window.open('https://github.com/InJeCTrL/BiliCLMonkey/releases/download/latest/bilicommentlottery.user.js');
-    reinstallButton.textContent = '使用异常点这里重装最新版';
+    reinstallButton.textContent = '使用异常/想要更新：点我安装最新版';
     reinstallButton.style.backgroundColor = '#e15241';
     reinstallButton.style.color = 'white';
     reinstallButton.style.border = 'none';
