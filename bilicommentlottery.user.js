@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.1.3
+// @version      1.1.4
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -12,8 +12,8 @@
 // @exclude      https://t.bilibili.com/
 // @exclude      https://t.bilibili.com/?*
 // @grant        none
-// @updateURL    https://github.com/InJeCTrL/BiliCLMonkey/releases/download/latest/bilicommentlottery.user.js
-// @downloadURL  https://github.com/InJeCTrL/BiliCLMonkey/releases/download/latest/bilicommentlottery.user.js
+// @updateURL    https://gitee.com/InJeCTrL/BiliCLMonkey/raw/main/bilicommentlottery.user.js
+// @downloadURL  https://gitee.com/InJeCTrL/BiliCLMonkey/raw/main/bilicommentlottery.user.js
 // @require      https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.js
 // @require      https://unpkg.com/xhook@latest/dist/xhook.min.js
 // @run-at       document-body
@@ -127,7 +127,7 @@
 
     // 安装最新版
     const reinstallButton = document.createElement('button');
-    reinstallButton.onclick = () => window.open('https://github.com/InJeCTrL/BiliCLMonkey/releases/download/latest/bilicommentlottery.user.js');
+    reinstallButton.onclick = () => window.open('https://gitee.com/InJeCTrL/BiliCLMonkey/raw/main/bilicommentlottery.user.js');
     reinstallButton.textContent = '使用异常/想要更新：点我安装最新版';
     reinstallButton.style.backgroundColor = '#e15241';
     reinstallButton.style.color = 'white';
