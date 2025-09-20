@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.1.1
+// @version      1.1.2
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -114,6 +114,46 @@
     projectPage.appendChild(text);
     projectContainer.appendChild(projectPage);
     overlay.appendChild(projectContainer);
+
+    // 快速支持行
+    const buttonRow = document.createElement('div');
+    buttonRow.style.display = 'flex';
+    buttonRow.style.justifyContent = 'space-between';
+    buttonRow.style.width = '100%';
+    buttonRow.style.maxWidth = '500px';
+    buttonRow.style.margin = '0 auto 20px auto';
+    buttonRow.style.gap = '10px';
+    overlay.appendChild(buttonRow);
+
+    // 安装最新版
+    const reinstallButton = document.createElement('button');
+    reinstallButton.onclick = () => window.open('https://github.com/InJeCTrL/BiliCLMonkey/releases/download/latest/bilicommentlottery.user.js');
+    reinstallButton.textContent = '使用异常点这里重装最新版';
+    reinstallButton.style.backgroundColor = '#e15241';
+    reinstallButton.style.color = 'white';
+    reinstallButton.style.border = 'none';
+    reinstallButton.style.padding = '8px 10px';
+    reinstallButton.style.borderRadius = '4px';
+    reinstallButton.style.cursor = 'pointer';
+    reinstallButton.style.fontSize = '13px';
+    reinstallButton.style.flex = '1';
+    reinstallButton.style.whiteSpace = 'nowrap';
+    buttonRow.appendChild(reinstallButton);
+
+    // 快速联系
+    const contactButton = document.createElement('button');
+    contactButton.onclick = () => window.open('https://message.bilibili.com/#/whisper/mid20580011');
+    contactButton.textContent = '联系作者：B站 InJeCTrL';
+    contactButton.style.backgroundColor = '#2e691b';
+    contactButton.style.color = 'white';
+    contactButton.style.border = 'none';
+    contactButton.style.padding = '8px 10px';
+    contactButton.style.borderRadius = '4px';
+    contactButton.style.cursor = 'pointer';
+    contactButton.style.fontSize = '13px';
+    contactButton.style.flex = '1';
+    contactButton.style.whiteSpace = 'nowrap';
+    buttonRow.appendChild(contactButton);
 
     // 获取评论状态
     const loadingText = document.createElement('div');
