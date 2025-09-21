@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.1.6
+// @version      1.1.7
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -953,15 +953,16 @@
     // 抽奖Web Worker代码字符串
     const lotteryWorkerCode = `
         importScripts('https://cdn.jsdelivr.net/npm/cmpstr/dist/CmpStr.umd.min.js');
+        // 文本相似度比较器
+        const cmp = CmpStr.CmpStr.create({
+            metric: 'dice',
+        });
+
         self.onmessage = function(e) {
             const { type, data } = e.data;
 
             if (type === 'filterAndDraw') {
                 const { allReplies, formData } = data;
-                // 文本相似度比较器
-                const cmp = CmpStr.CmpStr.create({
-                    metric: 'dice',
-                });
 
                 // 导入所需的函数
                 const filterRepliesByConditions = ${filterRepliesByConditions.toString()};
@@ -1022,7 +1023,7 @@
         if (lotteryWorker) {
             lotteryWorker.postMessage({
                 type: 'filterAndDraw',
-                data: { allReplies, formData, cmp }
+                data: { allReplies, formData }
             });
 
             lotteryWorker.onmessage = function(e) {
