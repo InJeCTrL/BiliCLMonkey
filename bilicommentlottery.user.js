@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.1.7
+// @version      1.1.8
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -1271,92 +1271,7 @@
                 mask.style.color = '#666';
                 mask.style.fontSize = '14px';
                 mask.style.pointerEvents = 'none';
-
-                // 确定不符合的条件
-                const failedConditions = [];
-
-                if (reply.ctime < startTime || reply.ctime > endTime) {
-                    failedConditions.push('起始时间');
-                }
-
-                if (!selectedLevels.includes(reply.current_level)) {
-                    failedConditions.push('用户等级');
-                }
-
-                if (keyword) {
-                    const keywords = keyword.split(' ').filter(k => k.length > 0);
-                    if (!keywords.some(k => reply.message.toLowerCase().includes(k))) {
-                        failedConditions.push('评论包含关键字');
-                    }
-                }
-
-                if (excludeKeyword) {
-                    const excludeKeywords = excludeKeyword.split(' ').filter(k => k.length > 0);
-                    if (excludeKeywords.some(k => reply.message.toLowerCase().includes(k))) {
-                        failedConditions.push('评论禁止关键字');
-                    }
-                }
-
-                if (calculateTextLength(reply.message, reply.emoteKeys) < minTextLength) {
-                    failedConditions.push('评论文本字数');
-                }
-
-                if (uniqueUsers) {
-                    // 检查用户重复
-                    const userFirstIndex = allReplies.findIndex(r => r.mid === reply.mid);
-                    if (userFirstIndex !== index) {
-                        failedConditions.push('按用户去重');
-                    }
-                }
-
-                if (dedupeStrategy !== 'none') {
-                    // 检查评论去重策略
-                    if (dedupeStrategy === 'exclude_similar_80' || dedupeStrategy === 'exclude_similar_90') {
-                        const similarityThreshold = dedupeStrategy === 'exclude_similar_80' ? 0.8 : 0.9;
-                        const cleanedMessage = cleanCommentContent(reply.message, reply.emoteKeys);
-
-                        for (let i = 0; i < allReplies.length; i++) {
-                            if (i === index) continue;
-                            const otherCleaned = cleanCommentContent(allReplies[i].message, allReplies[i].emoteKeys);
-
-                            const similarity = cmp.closest([otherCleaned], cleanedMessage)[0].match;
-                            if (similarity >= similarityThreshold) {
-                                failedConditions.push('评论去重策略');
-                                break;
-                            }
-                        }
-                    } else {
-                        let key;
-                        if (dedupeStrategy === 'clean_first' || dedupeStrategy === 'clean_exclude') {
-                            key = cleanCommentContent(reply.message, reply.emoteKeys);
-                        } else {
-                            key = reply.message;
-                        }
-
-                        const messageCount = allReplies.filter(r => {
-                            if (dedupeStrategy === 'clean_first' || dedupeStrategy === 'clean_exclude') {
-                                return cleanCommentContent(r.message, r.emoteKeys) === key;
-                            } else {
-                                return r.message === key;
-                            }
-                        }).length;
-
-                        if ((dedupeStrategy === 'first' || dedupeStrategy === 'clean_first') &&
-                            allReplies.findIndex(r => {
-                                if (dedupeStrategy === 'clean_first') {
-                                    return cleanCommentContent(r.message, r.emoteKeys) === key;
-                                } else {
-                                    return r.message === key;
-                                }
-                            }) !== index) {
-                            failedConditions.push('评论去重策略');
-                        } else if ((dedupeStrategy === 'exclude' || dedupeStrategy === 'clean_exclude') && messageCount > 1) {
-                            failedConditions.push('评论去重策略');
-                        }
-                    }
-                }
-
-                mask.textContent = `不满足条件：${failedConditions.join('、')}`;
+                mask.textContent = '不满足抽奖筛选条件';
                 row.style.position = 'relative';
                 row.appendChild(mask);
             }
