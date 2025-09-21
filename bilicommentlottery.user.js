@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.1.5
+// @version      1.1.6
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -16,6 +16,7 @@
 // @downloadURL  https://gitee.com/InJeCTrL/BiliCLMonkey/raw/main/bilicommentlottery.user.js
 // @require      https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.js
 // @require      https://unpkg.com/xhook@latest/dist/xhook.min.js
+// @require      https://cdn.jsdelivr.net/npm/cmpstr/dist/CmpStr.umd.min.js
 // @run-at       document-body
 // ==/UserScript==
 
@@ -29,6 +30,11 @@
     flatpickrStylelLink.rel = 'stylesheet';
     flatpickrStylelLink.href = 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css';
     document.head.appendChild(flatpickrStylelLink);
+
+    // 文本相似度比较器
+    const cmp = CmpStr.CmpStr.create({
+        metric: 'dice',
+    });
 
     // 唤起BCL按钮
     const bclButton = document.createElement('button');
@@ -604,7 +610,7 @@
             };
         } else {
             // 不支持Web Worker
-            const csvContent = generateCsvContent(replies);
+            const csvContent = generateCSVContent(replies);
             finalizeDownload(csvContent);
         }
     }
@@ -727,6 +733,8 @@
 
         const dedupeOptions = [
             { value: 'none', text: '无' },
+            { value: 'exclude_similar_90', text: '排除所有相似度90%及以上的评论' },
+            { value: 'exclude_similar_80', text: '排除所有相似度80%及以上的评论' },
             { value: 'clean_first', text: '忽略评论中的表情和标点符号，按评论内容去重，只保留首个' },
             { value: 'first', text: '按评论内容去重，只保留首个' },
             { value: 'clean_exclude', text: '忽略评论中的表情和标点符号，排除所有重复评论' },
@@ -768,15 +776,14 @@
         form.appendChild(submitButton);
     }
 
-    function filterRepliesByConditions(replies) {
-        const formData = new FormData(form);
+    function filterRepliesByConditions(replies, formData) {
         const uniqueUsers = formData.get('uniqueUsers') !== null;
         const dedupeStrategy = formData.get('dedupeStrategy') || 'none';
-        const startTime = form.querySelector('input[name="startTime"]').value ? new Date(form.querySelector('input[name="startTime"]').value).getTime() / 1000 : 0;
-        const endTime = form.querySelector('input[name="endTime"]').value ? new Date(form.querySelector('input[name="endTime"]').value).getTime() / 1000 : Infinity;
+        const startTime = formData.get('startTime') ? new Date(formData.get('startTime')).getTime() / 1000 : 0;
+        const endTime = formData.get('endTime') ? new Date(formData.get('endTime')).getTime() / 1000 : Infinity;
         const selectedLevels = formData.getAll('levels').map(level => parseInt(level, 10));
-        const keyword = formData.get('keyword').trim().toLowerCase();
-        const excludeKeyword = formData.get('excludeKeyword').trim().toLowerCase();
+        const keyword = formData.get('keyword') ? formData.get('keyword').trim().toLowerCase() : '';
+        const excludeKeyword = formData.get('excludeKeyword') ? formData.get('excludeKeyword').trim().toLowerCase() : '';
         const minTextLength = parseInt(formData.get('minTextLength') || 0, 10);
 
         // 第一步：基本筛选
@@ -814,52 +821,78 @@
 
         // 第三步：评论内容去重策略
         if (dedupeStrategy !== 'none') {
-            const messageCountMap = new Map();
+            if (dedupeStrategy === 'exclude_similar_80' || dedupeStrategy === 'exclude_similar_90') {
+                // 相似度去重策略
+                const similarityThreshold = dedupeStrategy === 'exclude_similar_80' ? 0.8 : 0.9;
 
-            // 计算每条评论出现的次数
-            filteredReplies.forEach(reply => {
-                let key;
-                if (dedupeStrategy === 'clean_first' || dedupeStrategy === 'clean_exclude') {
-                    // 使用清理后的评论内容作为键
-                    key = cleanCommentContent(reply.message, reply.emoteKeys);
-                } else {
-                    // 使用原始评论内容作为键
-                    key = reply.message;
+                // 计算清理后的评论内容
+                const cleanedMessages = filteredReplies.map(reply =>
+                    cleanCommentContent(reply.message, reply.emoteKeys)
+                );
+
+                // 排除相似度超过阈值的评论
+                filteredReplies = filteredReplies.filter((reply, index) => {
+                    const currentMessage = cleanedMessages[index];
+
+                    // 检查与其他所有评论的相似度
+                    for (let i = 0; i < cleanedMessages.length; i++) {
+                        if (i === index) continue;
+
+                        const similarity = cmp.closest([cleanedMessages[i]], currentMessage)[0].match;
+                        if (similarity >= similarityThreshold) {
+                            return false; // 相似度超过阈值，排除
+                        }
+                    }
+                    return true; // 没有找到相似评论，保留
+                });
+            } else {
+                const messageCountMap = new Map();
+
+                // 计算每条评论出现的次数
+                filteredReplies.forEach(reply => {
+                    let key;
+                    if (dedupeStrategy === 'clean_first' || dedupeStrategy === 'clean_exclude') {
+                        // 使用清理后的评论内容作为键
+                        key = cleanCommentContent(reply.message, reply.emoteKeys);
+                    } else {
+                        // 使用原始评论内容作为键
+                        key = reply.message;
+                    }
+
+                    const count = messageCountMap.get(key) || 0;
+                    messageCountMap.set(key, count + 1);
+                });
+
+                if (dedupeStrategy === 'first' || dedupeStrategy === 'clean_first') {
+                    // 只保留第一条重复评论
+                    const seenMessages = new Set();
+                    filteredReplies = filteredReplies.filter(reply => {
+                        let key;
+                        if (dedupeStrategy === 'clean_first') {
+                            key = cleanCommentContent(reply.message, reply.emoteKeys);
+                        } else {
+                            key = reply.message;
+                        }
+
+                        if (seenMessages.has(key)) {
+                            return false;
+                        }
+                        seenMessages.add(key);
+                        return true;
+                    });
+                } else if (dedupeStrategy === 'exclude' || dedupeStrategy === 'clean_exclude') {
+                    // 排除所有重复评论
+                    filteredReplies = filteredReplies.filter(reply => {
+                        let key;
+                        if (dedupeStrategy === 'clean_exclude') {
+                            key = cleanCommentContent(reply.message, reply.emoteKeys);
+                        } else {
+                            key = reply.message;
+                        }
+
+                        return messageCountMap.get(key) === 1;
+                    });
                 }
-
-                const count = messageCountMap.get(key) || 0;
-                messageCountMap.set(key, count + 1);
-            });
-
-            if (dedupeStrategy === 'first' || dedupeStrategy === 'clean_first') {
-                // 只保留第一条重复评论
-                const seenMessages = new Set();
-                filteredReplies = filteredReplies.filter(reply => {
-                    let key;
-                    if (dedupeStrategy === 'clean_first') {
-                        key = cleanCommentContent(reply.message, reply.emoteKeys);
-                    } else {
-                        key = reply.message;
-                    }
-
-                    if (seenMessages.has(key)) {
-                        return false;
-                    }
-                    seenMessages.add(key);
-                    return true;
-                });
-            } else if (dedupeStrategy === 'exclude' || dedupeStrategy === 'clean_exclude') {
-                // 排除所有重复评论
-                filteredReplies = filteredReplies.filter(reply => {
-                    let key;
-                    if (dedupeStrategy === 'clean_exclude') {
-                        key = cleanCommentContent(reply.message, reply.emoteKeys);
-                    } else {
-                        key = reply.message;
-                    }
-
-                    return messageCountMap.get(key) === 1;
-                });
             }
         }
 
@@ -867,10 +900,12 @@
     }
 
     function getRandomWinners(filteredReplies, count) {
+        if (count <= 0 || filteredReplies.length === 0) return [];
+
         const shuffledReplies = filteredReplies.slice();
         const winnerReplies = [];
 
-        for (let i = 0; i < count; i++) {
+        for (let i = 0; i < count && i < shuffledReplies.length; i++) {
             const j = Math.floor(Math.random() * (shuffledReplies.length - i));
             winnerReplies.push(shuffledReplies[j]);
             [shuffledReplies[j], shuffledReplies[shuffledReplies.length - i - 1]] = [shuffledReplies[shuffledReplies.length - i - 1], shuffledReplies[j]];
@@ -915,36 +950,146 @@
         });
     }
 
+    // 抽奖Web Worker代码字符串
+    const lotteryWorkerCode = `
+        importScripts('https://cdn.jsdelivr.net/npm/cmpstr/dist/CmpStr.umd.min.js');
+        self.onmessage = function(e) {
+            const { type, data } = e.data;
+
+            if (type === 'filterAndDraw') {
+                const { allReplies, formData } = data;
+                // 文本相似度比较器
+                const cmp = CmpStr.CmpStr.create({
+                    metric: 'dice',
+                });
+
+                // 导入所需的函数
+                const filterRepliesByConditions = ${filterRepliesByConditions.toString()};
+                const getRandomWinners = ${getRandomWinners.toString()};
+                const cleanCommentContent = ${cleanCommentContent.toString()};
+                const calculateTextLength = ${calculateTextLength.toString()};
+
+                try {
+                    const filteredReplies = filterRepliesByConditions(allReplies, formData);
+                    const winnersCount = parseInt(formData.get('winnersCount'), 10);
+                    const winners = getRandomWinners(filteredReplies, winnersCount);
+
+                    self.postMessage({
+                        type: 'drawResult',
+                        data: { filteredReplies, winners }
+                    });
+                } catch (error) {
+                    self.postMessage({
+                        type: 'error',
+                        data: error.message
+                    });
+                }
+            }
+        };
+    `;
+
+    // 创建抽奖Web Worker
+    let lotteryWorker;
+
+    try {
+        const blob = new Blob([lotteryWorkerCode], { type: 'application/javascript' });
+        lotteryWorker = new Worker(URL.createObjectURL(blob));
+    } catch (e) {
+        console.error('Failed to create worker:', e);
+        lotteryWorker = null;
+    }
+
     function generateWinnersList() {
-        const filteredReplies = filterRepliesByConditions(allReplies);
-        if (filteredReplies.length === 0) {
-            alert('没有符合条件的评论可以参与抽奖');
-            return;
-        }
+        // 显示等待提示
+        const waitingOverlay = document.createElement('div');
+        waitingOverlay.style.position = 'fixed';
+        waitingOverlay.style.top = '0';
+        waitingOverlay.style.left = '0';
+        waitingOverlay.style.width = '100%';
+        waitingOverlay.style.height = '100%';
+        waitingOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        waitingOverlay.style.color = 'white';
+        waitingOverlay.style.display = 'flex';
+        waitingOverlay.style.justifyContent = 'center';
+        waitingOverlay.style.alignItems = 'center';
+        waitingOverlay.style.zIndex = '1000000';
+        waitingOverlay.innerHTML = '<div style="font-size: 24px; text-align: center;">正在抽取，请稍等！<br><span style="font-size: 16px;">处理中，请勿关闭页面...</span></div>';
+        document.body.appendChild(waitingOverlay);
 
         const formData = new FormData(form);
-        const winnersCount = parseInt(formData.get('winnersCount'), 10);
-        if (isNaN(winnersCount) || winnersCount <= 0) {
-            alert('无效的中奖人数');
-            return;
+
+        // 使用Web Worker处理抽奖
+        if (lotteryWorker) {
+            lotteryWorker.postMessage({
+                type: 'filterAndDraw',
+                data: { allReplies, formData, cmp }
+            });
+
+            lotteryWorker.onmessage = function(e) {
+                const { type, data } = e.data;
+
+                if (type === 'drawResult') {
+                    const { filteredReplies, winners } = data;
+
+                    // 移除等待提示
+                    document.body.removeChild(waitingOverlay);
+
+                    // 更新界面
+                    updateCommentsTable(allReplies, filteredReplies);
+
+                    if (filteredReplies.length === 0) {
+                        alert('没有符合条件的评论可以参与抽奖');
+                        return;
+                    }
+
+                    const winnersCount = parseInt(formData.get('winnersCount'), 10);
+                    if (winnersCount > filteredReplies.length) {
+                        alert('预定中奖人数超过符合条件的评论数');
+                        return;
+                    }
+
+                    revealAllButton.style.display = 'block';
+                    displayWinners(winners);
+                } else if (type === 'error') {
+                    document.body.removeChild(waitingOverlay);
+                    alert('抽奖过程中发生错误: ' + data);
+                }
+            };
+        } else {
+            // 回退方案：直接在主线程处理
+            setTimeout(() => {
+                const filteredReplies = filterRepliesByConditions(allReplies, formData);
+                const winnersCount = parseInt(formData.get('winnersCount'), 10);
+
+                if (filteredReplies.length === 0) {
+                    document.body.removeChild(waitingOverlay);
+                    alert('没有符合条件的评论可以参与抽奖');
+                    return;
+                }
+
+                if (winnersCount > filteredReplies.length) {
+                    document.body.removeChild(waitingOverlay);
+                    alert('预定中奖人数超过符合条件的评论数');
+                    return;
+                }
+
+                const winners = getRandomWinners(filteredReplies, winnersCount);
+
+                document.body.removeChild(waitingOverlay);
+                updateCommentsTable(allReplies, filteredReplies);
+                revealAllButton.style.display = 'block';
+                displayWinners(winners);
+            }, 100);
         }
-        if (winnersCount > filteredReplies.length) {
-            alert('预定中奖人数超过符合条件的评论数');
-            return;
-        }
+    }
 
-        revealAllButton.style.display = 'block';
-
-        const winners = getRandomWinners(filteredReplies, winnersCount);
-
-        // 中奖栏
+    function displayWinners(winners) {
         const winnerTable = document.createElement('table');
         winnerTable.style.marginTop = '10px';
         winnerTable.style.width = '100%';
         winnerTable.style.borderCollapse = 'separate';
         winnerTable.style.borderSpacing = '0px 10px';
 
-        // 中奖栏内容
         const tbody = document.createElement('tbody');
         winners.forEach(reply => {
             const row = document.createElement('tr');
@@ -1081,5 +1226,139 @@
             overlay.appendChild(winnerTable);
         }
         winnerTable.classList.add('winner-list');
+    }
+
+    function updateCommentsTable(allReplies, filteredReplies) {
+        // 移除所有已添加的遮罩层
+        document.querySelectorAll('[class*="filter-out-comment"]').forEach(maskItem => maskItem.remove());
+
+        const table = overlay.querySelector('.all-replies-tbl');
+        if (!table) return;
+
+        const formData = new FormData(form);
+        const startTime = form.querySelector('input[name="startTime"]').value ? new Date(form.querySelector('input[name="startTime"]').value).getTime() / 1000 : 0;
+        const endTime = form.querySelector('input[name="endTime"]').value ? new Date(form.querySelector('input[name="endTime"]').value).getTime() / 1000 : Infinity;
+        const selectedLevels = formData.getAll('levels').map(level => parseInt(level, 10));
+        const keyword = formData.get('keyword') ? formData.get('keyword').trim().toLowerCase() : '';
+        const excludeKeyword = formData.get('excludeKeyword') ? formData.get('excludeKeyword').trim().toLowerCase() : '';
+        const minTextLength = parseInt(formData.get('minTextLength') || 0, 10);
+        const uniqueUsers = formData.get('uniqueUsers') !== null;
+        const dedupeStrategy = formData.get('dedupeStrategy') || 'none';
+
+        const filteredReplyIds = new Set(filteredReplies.map(reply => reply.rpid));
+
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach((row, index) => {
+            if (index >= allReplies.length) return;
+
+            const reply = allReplies[index];
+            const isFiltered = filteredReplyIds.has(reply.rpid);
+
+            if (!isFiltered) {
+                // 创建遮罩层
+                const mask = document.createElement('div');
+                mask.classList.add('filter-out-comment');
+                mask.style.position = 'absolute';
+                mask.style.top = '0';
+                mask.style.left = '0';
+                mask.style.width = '100%';
+                mask.style.height = '100%';
+                mask.style.backgroundColor = 'rgba(236, 236, 238, 0.8)';
+                mask.style.display = 'flex';
+                mask.style.justifyContent = 'center';
+                mask.style.alignItems = 'center';
+                mask.style.color = '#666';
+                mask.style.fontSize = '14px';
+                mask.style.pointerEvents = 'none';
+
+                // 确定不符合的条件
+                const failedConditions = [];
+
+                if (reply.ctime < startTime || reply.ctime > endTime) {
+                    failedConditions.push('起始时间');
+                }
+
+                if (!selectedLevels.includes(reply.current_level)) {
+                    failedConditions.push('用户等级');
+                }
+
+                if (keyword) {
+                    const keywords = keyword.split(' ').filter(k => k.length > 0);
+                    if (!keywords.some(k => reply.message.toLowerCase().includes(k))) {
+                        failedConditions.push('评论包含关键字');
+                    }
+                }
+
+                if (excludeKeyword) {
+                    const excludeKeywords = excludeKeyword.split(' ').filter(k => k.length > 0);
+                    if (excludeKeywords.some(k => reply.message.toLowerCase().includes(k))) {
+                        failedConditions.push('评论禁止关键字');
+                    }
+                }
+
+                if (calculateTextLength(reply.message, reply.emoteKeys) < minTextLength) {
+                    failedConditions.push('评论文本字数');
+                }
+
+                if (uniqueUsers) {
+                    // 检查用户重复
+                    const userFirstIndex = allReplies.findIndex(r => r.mid === reply.mid);
+                    if (userFirstIndex !== index) {
+                        failedConditions.push('按用户去重');
+                    }
+                }
+
+                if (dedupeStrategy !== 'none') {
+                    // 检查评论去重策略
+                    if (dedupeStrategy === 'exclude_similar_80' || dedupeStrategy === 'exclude_similar_90') {
+                        const similarityThreshold = dedupeStrategy === 'exclude_similar_80' ? 0.8 : 0.9;
+                        const cleanedMessage = cleanCommentContent(reply.message, reply.emoteKeys);
+
+                        for (let i = 0; i < allReplies.length; i++) {
+                            if (i === index) continue;
+                            const otherCleaned = cleanCommentContent(allReplies[i].message, allReplies[i].emoteKeys);
+
+                            const similarity = cmp.closest([otherCleaned], cleanedMessage)[0].match;
+                            if (similarity >= similarityThreshold) {
+                                failedConditions.push('评论去重策略');
+                                break;
+                            }
+                        }
+                    } else {
+                        let key;
+                        if (dedupeStrategy === 'clean_first' || dedupeStrategy === 'clean_exclude') {
+                            key = cleanCommentContent(reply.message, reply.emoteKeys);
+                        } else {
+                            key = reply.message;
+                        }
+
+                        const messageCount = allReplies.filter(r => {
+                            if (dedupeStrategy === 'clean_first' || dedupeStrategy === 'clean_exclude') {
+                                return cleanCommentContent(r.message, r.emoteKeys) === key;
+                            } else {
+                                return r.message === key;
+                            }
+                        }).length;
+
+                        if ((dedupeStrategy === 'first' || dedupeStrategy === 'clean_first') &&
+                            allReplies.findIndex(r => {
+                                if (dedupeStrategy === 'clean_first') {
+                                    return cleanCommentContent(r.message, r.emoteKeys) === key;
+                                } else {
+                                    return r.message === key;
+                                }
+                            }) !== index) {
+                            failedConditions.push('评论去重策略');
+                        } else if ((dedupeStrategy === 'exclude' || dedupeStrategy === 'clean_exclude') && messageCount > 1) {
+                            failedConditions.push('评论去重策略');
+                        }
+                    }
+                }
+
+                mask.textContent = `不满足条件：${failedConditions.join('、')}`;
+                row.style.position = 'relative';
+                row.appendChild(mask);
+            }
+        });
     }
 })();
