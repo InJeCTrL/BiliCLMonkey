@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.1.4
+// @version      1.1.5
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -106,7 +106,7 @@
     svg.setAttribute('width', '32');
 
     const path = document.createElementNS(svgNS, 'path');
-    path.setAttribute('d', 'M12.5.75C6.146.75 1 5.896 1 12.25c0 5.089 3.292 9.387 7.863 10.91.575.101.79-.244.79-.546 0-.273-.014-1.178-.014-2.142-2.889.532-3.636-.704-3.866-1.35-.13-.331-.69-1.352-1.18-1.625-.402-.216-.977-.748-.014-.762.906-.014 1.553.834 1.769 1.179 1.035 1.74 2.688 1.25 3.349.948.1-.747.402-1.25.733-1.538-2.559-.287-5.232-1.279-5.232-5.678 0-1.25.445-2.285 1.178-3.09-.115-.288-.517-1.467.115-3.048 0 0 .963-.302 3.163 1.179.92-.259 1.897-.388 2.875-.388.977 0 1.955.13 2.875.388 2.2-1.495 3.162-1.179 3.162-1.179.633 1.581.23 2.76.115 3.048.733.805 1.179 1.825 1.179 3.09 0 4.413-2.688 5.39-5.247 5.678.417.36.776 1.05.776 2.128 0 1.538-.014 2.774-.014 3.162 0 .302.216.662.79.547C20.709 21.637 24 17.324 24 12.25 24 5.896 18.854.75 12.5.75Z');
+    path.setAttribute('d', 'M12.5.75C6.146.75 1 5.896 1 12.25c0 5.089 3.292 9.387 7.863 10.91.575.101.79-.244.79-.546 0-.273-.014-1.178-.014-2.142-2.889.532-3.636-.704-3.866-1.35-.13-.331-.69-1.352-1.18-1.625-.402-.216-.977-.748-.014-.762.906-.014 1.553.834 1.769 1.179 1.035 1.74 2.688 1.25 3.349.948.1-.747.402-1.25.733-1.538-2.559-.287-5.232-1.279-5.232-5.678 0-1.25.445-2.285 1.178-3.09-.115-.288-.517-1.467.115-3.048 0 0 .963-.302 3.163 1.179.92-.259 1.897-.388 2.875-.388.977 0 1.955.13 2.875.388 2.2-1.495 3.162-1.179 3.162-1.179.633 1.581.23 2.76.115 3.048.733.805 1.179 1.825 1.179 3.09 0 4.413-2.688 5.39-5.247 5.678.417.36.776 1.05.776 2.128 0 1.538-.014 2.774-.014 3.162 0 .302.216.662.790.547C20.709 21.637 24 17.324 24 12.25 24 5.896 18.854.75 12.5.75Z');
     svg.appendChild(path);
 
     const text = document.createTextNode('InJeCTrL/BiliCLMonkey');
@@ -623,6 +623,32 @@
         URL.revokeObjectURL(link.href);
     }
 
+    function cleanCommentContent(message, emoteKeys) {
+        // 移除自定义表情
+        let cleanMessage = message;
+        emoteKeys.forEach(key => {
+            cleanMessage = cleanMessage.replaceAll(key, '');
+        });
+
+        // 移除emoji和标点符号
+        const emojiRegex = /\p{Emoji_Presentation}/gu;
+        const punctuationRegex = /[!"#$%&'()*+,-./:;<=>?@[\\\]^_`{|}~。，、；：？！""''（）【】《》｛｝〈〉「」『』〔〕…—–﹏～]/g;
+
+        cleanMessage = cleanMessage
+            .replaceAll(emojiRegex, '')
+            .replaceAll(punctuationRegex, '')
+            .replaceAll(/\s+/g, '');
+
+        return cleanMessage;
+    }
+
+    function calculateTextLength(message, emoteKeys) {
+        // 清理评论内容，移除表情和标点符号
+        let cleanMessage = cleanCommentContent(message, emoteKeys);
+
+        return cleanMessage.length;
+    }
+
     function showFilterForm() {
         form.innerHTML = '';
         form.style.display = 'block';
@@ -685,33 +711,37 @@
         // 评论去重策略
         const dedupeContainer = document.createElement('div');
         dedupeContainer.style.marginBottom = '10px';
+        dedupeContainer.style.display = 'flex';
+        dedupeContainer.style.alignItems = 'center';
         const dedupeLabel = document.createElement('label');
         dedupeLabel.textContent = '评论去重策略';
         dedupeLabel.style.marginRight = '10px';
         dedupeContainer.appendChild(dedupeLabel);
 
+        const dedupeSelect = document.createElement('select');
+        dedupeSelect.name = 'dedupeStrategy';
+        dedupeSelect.style.width = '60%';
+        dedupeSelect.style.padding = '5px';
+        dedupeSelect.style.borderRadius = '3px';
+        dedupeSelect.style.border = '1px solid #ccc';
+
         const dedupeOptions = [
             { value: 'none', text: '无' },
+            { value: 'clean_first', text: '忽略评论中的表情和标点符号，按评论内容去重，只保留首个' },
             { value: 'first', text: '按评论内容去重，只保留首个' },
+            { value: 'clean_exclude', text: '忽略评论中的表情和标点符号，排除所有重复评论' },
             { value: 'exclude', text: '排除所有重复评论' }
         ];
 
         dedupeOptions.forEach(option => {
-            const radio = document.createElement('input');
-            radio.type = 'radio';
-            radio.name = 'dedupeStrategy';
-            radio.value = option.value;
-            radio.id = `dedupe-${option.value}`;
-            if (option.value === 'none') radio.checked = true;
-
-            const label = document.createElement('label');
-            label.htmlFor = `dedupe-${option.value}`;
-            label.textContent = option.text;
-            label.style.marginRight = '10px';
-
-            dedupeContainer.appendChild(radio);
-            dedupeContainer.appendChild(label);
+            const optionElement = document.createElement('option');
+            optionElement.value = option.value;
+            optionElement.textContent = option.text;
+            if (option.value === 'none') optionElement.selected = true;
+            dedupeSelect.appendChild(optionElement);
         });
+
+        dedupeContainer.appendChild(dedupeSelect);
         form.appendChild(dedupeContainer);
 
         // 评论包含关键字
@@ -736,28 +766,6 @@
         submitButton.style.cursor = 'pointer';
         submitButton.onclick = () => generateWinnersList();
         form.appendChild(submitButton);
-    }
-
-    // 计算评论文本字数（不包含表情和标点符号）
-    function calculateTextLength(message, emoteKeys) {
-        // 移除自定义表情
-        let cleanMessage = message;
-        emoteKeys.forEach(key => {
-            cleanMessage = cleanMessage.replaceAll(key, '');
-        });
-
-        // 移除emoji和标点符号
-        // 匹配emoji的正则表达式
-        const emojiRegex = /\p{Emoji_Presentation}/gu;
-        // 匹配标点符号的正则表达式
-        const punctuationRegex = /[!"#$%&'()*+,-./:;<=>?@[\\\]^_`{|}~。，、；：？！""''（）【】《》｛｝〈〉「」『』〔〕…—–﹏～]/g;
-
-        cleanMessage = cleanMessage
-            .replaceAll(emojiRegex, '')
-            .replaceAll(punctuationRegex, '')
-            .replaceAll(/\s+/g, '');
-
-        return cleanMessage.length;
     }
 
     function filterRepliesByConditions(replies) {
@@ -810,25 +818,48 @@
 
             // 计算每条评论出现的次数
             filteredReplies.forEach(reply => {
-                const count = messageCountMap.get(reply.message) || 0;
-                messageCountMap.set(reply.message, count + 1);
+                let key;
+                if (dedupeStrategy === 'clean_first' || dedupeStrategy === 'clean_exclude') {
+                    // 使用清理后的评论内容作为键
+                    key = cleanCommentContent(reply.message, reply.emoteKeys);
+                } else {
+                    // 使用原始评论内容作为键
+                    key = reply.message;
+                }
+
+                const count = messageCountMap.get(key) || 0;
+                messageCountMap.set(key, count + 1);
             });
 
-            if (dedupeStrategy === 'first') {
+            if (dedupeStrategy === 'first' || dedupeStrategy === 'clean_first') {
                 // 只保留第一条重复评论
                 const seenMessages = new Set();
                 filteredReplies = filteredReplies.filter(reply => {
-                    if (seenMessages.has(reply.message)) {
+                    let key;
+                    if (dedupeStrategy === 'clean_first') {
+                        key = cleanCommentContent(reply.message, reply.emoteKeys);
+                    } else {
+                        key = reply.message;
+                    }
+
+                    if (seenMessages.has(key)) {
                         return false;
                     }
-                    seenMessages.add(reply.message);
+                    seenMessages.add(key);
                     return true;
                 });
-            } else if (dedupeStrategy === 'exclude') {
+            } else if (dedupeStrategy === 'exclude' || dedupeStrategy === 'clean_exclude') {
                 // 排除所有重复评论
-                filteredReplies = filteredReplies.filter(reply =>
-                    messageCountMap.get(reply.message) === 1
-                );
+                filteredReplies = filteredReplies.filter(reply => {
+                    let key;
+                    if (dedupeStrategy === 'clean_exclude') {
+                        key = cleanCommentContent(reply.message, reply.emoteKeys);
+                    } else {
+                        key = reply.message;
+                    }
+
+                    return messageCountMap.get(key) === 1;
+                });
             }
         }
 
