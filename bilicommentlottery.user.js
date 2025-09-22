@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.1.8
+// @version      1.1.9
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -282,17 +282,18 @@
     // 获取评论的额外间隔时间
     let paddingTime = 0;
     // 获取评论的时间间隔左右边界
-    let freqLeftBound = 2000;
+    let freqLeftBound = 1000;
     let freqRightBound = 3000;
-    // 上一次滚动定时器
-    let lastRollTimeout = -1;
+    // 上一次滚动起止时间
+    let lastRollStartTime = -1;
+    let lastRollEndTime = 0;
 
     function rollAndFetchComments() {
+        lastRollStartTime = Math.max(Date.now(), lastRollStartTime); // 标记开始本次滚动
+
+        // 回到顶部
         window.scroll(0, 0);
-        // 0.5s 后滚动到底
-        setTimeout(function(){
-            window.scroll(0, document.body.scrollHeight);
-        }, 500);
+
         let biliComments = document.getElementsByTagName('bili-comments');
         if (biliComments != null && biliComments.length >= 1) {
             // 切换到最新评论列表
@@ -312,12 +313,33 @@
             // 判断结束
             let end = biliComments[0].shadowRoot.querySelector('#end');
             if (end != null && end.innerText == '没有更多评论') {
-                return;
+                lastRollEndTime = Math.max(Date.now(), lastRollEndTime); // 标记结束本次滚动
+                return 'end';
             }
         }
 
-        // {freqLeftBound}s - {freqRightBound}s 后再次执行
-        lastRollTimeout = setTimeout(rollAndFetchComments, paddingTime + Math.random() * (freqRightBound - freqLeftBound) + freqLeftBound);
+        // 0.5s 后滚动到底
+        setTimeout(function(){
+            window.scroll(0, document.body.scrollHeight);
+            // 0.5s 后回到顶部
+            setTimeout(function(){
+                window.scroll(0, 0);
+                lastRollEndTime = Math.max(Date.now(), lastRollEndTime); // 标记结束本次滚动
+            }, 500);
+        }, 500);
+    }
+
+    function startRollAndFetch() {
+        let nowTime = Date.now();
+        if (lastRollStartTime < lastRollEndTime && // 上一次滚动结束
+            nowTime >= lastRollEndTime + paddingTime + Math.random() * (freqRightBound - freqLeftBound) + freqLeftBound // 满足上一次滚动结束后时间间隔
+           ) {
+            let endFlag = rollAndFetchComments();
+            if (endFlag === 'end') return; // 获取结束，不再检测
+        }
+
+        // 0.3s 循环一次
+        setTimeout(startRollAndFetch, 300);
     }
 
     // UP主昵称
@@ -352,7 +374,8 @@
 
         window.scroll(0, document.body.scrollHeight);
 
-        setTimeout(rollAndFetchComments, 500);
+        // 0.5s 后开始拉取
+        setTimeout(startRollAndFetch, 500);
     }
 
     bclButton.addEventListener('click', function() {
@@ -423,8 +446,6 @@
                 progressBar.style.backgroundColor = '#66B14A';
                 if (inRateLimitMode === 1) {
                     inRateLimitMode = 0;
-                    clearTimeout(lastRollTimeout);
-                    lastRollTimeout = setTimeout(rollAndFetchComments, paddingTime + Math.random() * (freqRightBound - freqLeftBound) + freqLeftBound);
                 }
             }).catch((error) => {
                 console.error('Error processing response:', error);
@@ -432,8 +453,6 @@
                 if (inRateLimitMode === 0) {
                     inRateLimitMode = 1;
                     freqRightBound += 1000;
-                    clearTimeout(lastRollTimeout);
-                    lastRollTimeout = setTimeout(rollAndFetchComments, paddingTime + Math.random() * (freqRightBound - freqLeftBound) + freqLeftBound);
                 }
                 loadingText.textContent = `部分评论获取失败，仍在尝试加载（间隔：${(paddingTime+freqLeftBound)/1000}s - ${(paddingTime+freqRightBound)/1000}s）`;
                 progressBar.style.backgroundColor = '#F78F33';
