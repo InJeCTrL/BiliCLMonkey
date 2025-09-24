@@ -83,6 +83,10 @@ BiliCLMonkey 是依托于 Tampermonkey 的油猴插件，用户可以在任意�
 
 ## 更新与其它说明
 
+2025-09-24更新：
+
+1. 修复Chromium内核浏览器的WebWorker不能传递formdata问题
+
 2025-09-22更新：
 
 1. 优化评论拉取逻辑

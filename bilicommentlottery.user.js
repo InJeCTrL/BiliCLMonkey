@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.1.9
+// @version      1.1.10
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -989,9 +989,19 @@
                 const cleanCommentContent = ${cleanCommentContent.toString()};
                 const calculateTextLength = ${calculateTextLength.toString()};
 
+                // 创建模拟 FormData 对象的方法
+                function createMockFormData(formDataObj) {
+                    return {
+                        get: (name) => formDataObj[name],
+                        getAll: (name) => Array.isArray(formDataObj[name]) ? formDataObj[name] : (formDataObj[name] !== undefined ? [formDataObj[name]] : []),
+                        has: (name) => formDataObj[name] !== undefined
+                    };
+                }
+
                 try {
-                    const filteredReplies = filterRepliesByConditions(allReplies, formData);
-                    const winnersCount = parseInt(formData.get('winnersCount'), 10);
+                    const mockFormData = createMockFormData(formData);
+                    const filteredReplies = filterRepliesByConditions(allReplies, mockFormData);
+                    const winnersCount = parseInt(mockFormData.get('winnersCount'), 10);
                     const winners = getRandomWinners(filteredReplies, winnersCount);
 
                     self.postMessage({
@@ -1038,11 +1048,25 @@
 
         const formData = new FormData(form);
 
+        // 将 FormData 转换为普通对象，解决 Chrome 兼容性问题
+        const formDataObj = {};
+        for (let [key, value] of formData.entries()) {
+            if (formDataObj[key] !== undefined) {
+                // 如果已经存在（如多选框），转换为数组
+                if (!Array.isArray(formDataObj[key])) {
+                    formDataObj[key] = [formDataObj[key]];
+                }
+                formDataObj[key].push(value);
+            } else {
+                formDataObj[key] = value;
+            }
+        }
+
         // 使用Web Worker处理抽奖
         if (lotteryWorker) {
             lotteryWorker.postMessage({
                 type: 'filterAndDraw',
-                data: { allReplies, formData }
+                data: { allReplies, formData: formDataObj }
             });
 
             lotteryWorker.onmessage = function(e) {
@@ -1062,7 +1086,7 @@
                         return;
                     }
 
-                    const winnersCount = parseInt(formData.get('winnersCount'), 10);
+                    const winnersCount = parseInt(formDataObj.winnersCount, 10);
                     if (winnersCount > filteredReplies.length) {
                         alert('预定中奖人数超过符合条件的评论数');
                         return;
