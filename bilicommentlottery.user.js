@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCommentLottery
 // @namespace    BiliCommentLottery
-// @version      1.1.10
+// @version      1.1.11
 // @description  B站评论区抽奖（非官方）
 // @author       InJeCTrL
 // @match        https://*.bilibili.com/opus/*
@@ -397,7 +397,7 @@
             let resData = response.clone().json();
             resData.then(res => {
                 if (res == null || res.data == null || res.data.cursor == null) return;
-                let replies = [...res.data.replies, ...res.data.top_replies];
+                let replies = [...res.data.replies, ...(res.data.top_replies || [])];
                 totalReplies = Math.max(totalReplies, res.data.cursor.prev);
 
                 replies.forEach(reply => {
